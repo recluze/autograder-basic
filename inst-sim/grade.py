@@ -143,19 +143,28 @@ def grade_student_assignment(tag, student_id, incoming_assignments_folder, globa
     copy(src_file, target_folder)
 
   # get student files
+  missing_files = []
   modifiable_files = a_config['modifiable_files']
   src_folder = os.path.join(incoming_assignments_folder, student_id, tag)
+
+  if not os.path.exists(src_folder):
+    logging.debug("Assignment folder not found for student. Creating it.")
+    os.makedirs(src_folder)
+
   logging.debug("Getting student files from: " + src_folder)
   for f in modifiable_files:
     try:
       copy(os.path.join(src_folder, f), target_folder)
     except IOError:
       logging.warning("Student file not found: " + f + " for: " + student_id)
-      # TODO: mark as 0 ?!
-      return
+      missing_files.insert(0, f)
 
   # run tests now
-  score, outlog = run_student_tests(target_folder, a_config['total_points'], a_config['timeout'])
+  if missing_files:
+    score, outlog = (('-', '-', '-'), "Some files were missing: " + (", ".join(missing_files)))
+  else:
+    score, outlog = run_student_tests(target_folder, a_config['total_points'], a_config['timeout'])
+
   write_student_log(src_folder, outlog)
 
   return score
