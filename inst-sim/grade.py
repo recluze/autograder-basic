@@ -4,6 +4,7 @@ import os
 import sys
 import re
 import csv
+import argparse
 
 log_dir = "logs"
 global_identifier = "assignments-itc-f17"
@@ -46,12 +47,15 @@ def get_student_ids(incoming_folder):
 def get_assignment_config(tag, global_identifier):
   import json
   config_path = os.path.join(global_identifier, tag, 'config.json')
-  with open(config_path) as data_file:
-    data = json.load(data_file)
 
-  logging.debug("Loaded assignment config: " + str(data))
-  return data
+  try:
+    with open(config_path) as data_file:
+      data = json.load(data_file)
 
+    logging.debug("Loaded assignment config: " + str(data))
+    return data
+  except IOError:
+    raise IOError("Assignment configuration file not found. Missing assignment?")
 
 def write_student_log(student_assignment_folder, outlog):
   out_file = os.path.join(student_assignment_folder, "test-results-" + current_timestamp + ".log")
@@ -61,7 +65,7 @@ def write_student_log(student_assignment_folder, outlog):
 
 def get_score_from_result_line(res_line, total_points):
   # case where we have failures and passes
-  match = re.match(r"=*\s(\d*)\sfailed,\s(\d*)\spassed\s.*", res_line)
+  match = re.match(r"=*\s(\d*)\sfailed,\s(\d*)\spassed,\s.*", res_line)
   if match:
     failed = int(match.group(1))
     passed = int(match.group(2))
@@ -79,7 +83,7 @@ def get_score_from_result_line(res_line, total_points):
         logging.error("Failed to parse score line: " + res_line)
         # TODO: throw exception
 
-  percent = float(passed) / (passed+failed)
+  percent = float(passed) * total_points / (passed+failed)
   return (passed, failed, percent)
 
 def run_student_tests(target_folder, total_points, timeout):
@@ -218,5 +222,14 @@ def grade_assignment(tag):
   print "Done"
 
 if __name__ == '__main__':
-  tag = 'a01'
-  grade_assignment(tag)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-t', '--tag')
+  args = parser.parse_args()
+
+  tag = args.tag
+
+  try:
+    grade_assignment(tag)
+  except IOError as e:
+    print e.message
+    print "=== NOT DONE === "
